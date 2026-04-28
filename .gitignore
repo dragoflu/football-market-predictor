@@ -16,6 +16,7 @@ data/overnight.log
 !data/results/*.csv
 !data/results/*.txt
 !data/results/*.json
+!data/results/*.png
 
 # Internal / local notes
 CLAUDE.md
