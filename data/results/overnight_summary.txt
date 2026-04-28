@@ -1,0 +1,25 @@
+
+============================================================
+WALK-FORWARD RESULTS
+============================================================
+  Лиги:        ['B1', 'D1', 'E0', 'E1', 'F1', 'G1', 'I1', 'N1', 'P1', 'SC0', 'SP1', 'T1']
+  Matches:     73,469
+  Brier Score: 0.1990 (target < 0.21)
+  RPS:         0.2030 (target < 0.202)
+  Accuracy:    51.6% (benchmark 53.5%)
+  Bets:        27,190
+  ROI:         2.0%
+
+По лигам:
+  B1: Brier=0.2025 | ROI=+1.0% | Bets=1,984
+  D1: Brier=0.2028 | ROI=-0.1% | Bets=2,191
+  E0: Brier=0.1945 | ROI=+3.1% | Bets=2,816
+  E1: Brier=0.2129 | ROI=+3.7% | Bets=2,429
+  F1: Brier=0.2036 | ROI=+3.1% | Bets=2,240
+  G1: Brier=0.1896 | ROI=+6.0% | Bets=1,809
+  I1: Brier=0.1955 | ROI=+1.0% | Bets=2,507
+  N1: Brier=0.1904 | ROI=-2.1% | Bets=1,959
+  P1: Brier=0.1872 | ROI=+7.1% | Bets=2,201
+  SC0: Brier=0.1981 | ROI=-2.5% | Bets=1,723
+  SP1: Brier=0.1946 | ROI=+0.2% | Bets=2,862
+  T1: Brier=0.2017 | ROI=+0.9% | Bets=2,469

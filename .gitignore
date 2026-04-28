@@ -1,0 +1,42 @@
+# Secrets
+.env
+*.session
+
+# Data — too large for git
+data/raw/
+data/processed/
+data/results/*.parquet
+data/results/*.log
+data/models/
+data/signals/
+data/*.log
+data/overnight.log
+
+# Keep figures and text reports
+!data/results/*.csv
+!data/results/*.txt
+!data/results/*.json
+
+# Internal / local notes
+CLAUDE.md
+DEBUGGING.md
+PROGRESS.md
+prediction_markets_context.md
+datageo_bias_data.log
+ideas/
+.claude/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# OS
+.DS_Store
+vit_navi_reaction.png

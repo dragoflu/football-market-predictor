@@ -1,0 +1,64 @@
+
+============================================================
+WITH Pinnacle
+============================================================
+Features used: 45
+Brier Score:   0.1926
+ROI (P1+G1+E1, home+draw, edge>=0.18): 0.0%
+Sharpe:        0.000
+Bets:          0
+Positive seasons: 0/0
+
+Top-20 feature importance:
+implied_home                  0.232243
+implied_away                  0.229391
+implied_draw                  0.056903
+elo_diff                      0.031794
+elo_home                      0.014509
+home_goals_conceded_last20    0.013395
+home_points_last20            0.013080
+away_points_last20            0.012921
+elo_away                      0.012208
+away_season_matches_played    0.012075
+away_goals_conceded_last20    0.011567
+home_points_last5             0.011453
+home_season_matches_played    0.011417
+away_points_last10            0.011400
+away_goals_scored_last20      0.011296
+home_goals_scored_last20      0.011273
+away_goals_scored_last10      0.011211
+home_points_last10            0.011165
+away_xg_scored_last5          0.011153
+home_xg_conceded_last5        0.011136
+
+============================================================
+WITHOUT Pinnacle
+============================================================
+Features used: 42
+Brier Score:   0.1962
+ROI (P1+G1+E1, home+draw, edge>=0.18): -5.6%
+Sharpe:        -0.141
+Bets:          173
+Positive seasons: 7/14
+
+Top-20 feature importance:
+elo_diff                      0.235922
+elo_away                      0.107698
+elo_home                      0.097468
+home_points_last20            0.044192
+away_points_last20            0.037696
+away_goals_scored_last20      0.022082
+home_goals_scored_last20      0.019710
+away_points_last10            0.017913
+home_goals_conceded_last20    0.016619
+away_goals_scored_last10      0.015532
+away_xg_scored_last10         0.015056
+away_goals_conceded_last20    0.014693
+home_goals_scored_last5       0.014146
+away_xg_scored_last5          0.014088
+home_xg_conceded_last10       0.013735
+away_goals_conceded_last5     0.013729
+home_goals_conceded_last10    0.013725
+away_season_matches_played    0.013537
+home_goals_scored_last10      0.013515
+home_xg_conceded_last5        0.013415
