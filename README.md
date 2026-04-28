@@ -178,6 +178,46 @@ The practical risk is different: Pinnacle limits winning accounts. The realistic
 
 ---
 
+## Work in Progress: Polymarket Calibration Research
+
+> **Status:** Early-stage research. Data collection ongoing — current sample too small for production conclusions.
+
+### Hypothesis
+
+Polymarket is well-calibrated on average, but may have systematic biases in specific market categories (politics, geopolitics) that are less efficiently priced than sports or crypto markets.
+
+### What We Have
+
+300 resolved markets collected March 2026. Calibration stats across 10 probability bins:
+
+| Predicted | Actual | n | Signal |
+|---|---|---|---|
+| 3% | 5% | 20 | — |
+| 36% | **53%** | 32 | +17pp (p≈0.06) |
+| 46% | 43% | 68 | — |
+| 64% | **83%** | 23 | +19pp (p≈0.045) |
+| 94% | 100% | 4 | — |
+
+Two bins show potential upward bias (market underestimates probability), but sample sizes are too small for confidence — need 500+ per bin per category.
+
+### What We Found
+
+- Sports and crypto markets: efficiently priced (professional hedgers, bookmaker lines)
+- Politics / geopolitics: potential 15-20pp systematic bias at 35% and 64% bins
+- Current dataset: 273/300 markets uncategorized — collection pipeline needs fixing
+
+### What's Next
+
+- [ ] Rebuild dataset with proper category filtering (Politics, Geopolitics only)
+- [ ] Target: 1000+ resolved markets with correct labels
+- [ ] Split analysis by time horizon: 1-3d / 3-10d / 10d+ to resolution
+- [ ] Out-of-sample validation: train 2023-2024, test 2025
+- [ ] Paper trading simulator before any real capital
+
+**Realistic timeline:** 4-6 months of automated daily collection at ~50-70 markets/week.
+
+---
+
 ## Next Steps
 
 Paper trading on Primeira Liga (Portugal) — home wins and draws — edge ≥ 0.18 for one full season. Monitor whether edge vs Pinnacle persists in live conditions. Collect CLV data by recording both opening and closing lines.
