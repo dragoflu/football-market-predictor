@@ -1,10 +1,11 @@
 """
 Сбор исторических данных футбольных матчей с football-data.co.uk.
 
-Скачивает CSV за 20+ лет для 5 лиг (EPL, La Liga, Bundesliga, Serie A, Ligue 1).
+Скачивает CSV за 20+ лет по лигам из словаря LEAGUES (топ-дивизионы Европы).
 Включает результаты, коэффициенты букмекеров, статистику ударов.
+Ещё несколько лиг (SC0, G1) докачивает overnight_pipeline.py отдельно.
 
-Результат: data/raw/football/matches_{league}.parquet (5 файлов)
+Результат: data/raw/football/matches_{league}.parquet
 Время: ~5 минут (HTTP downloads)
 """
 

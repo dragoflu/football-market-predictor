@@ -2,9 +2,9 @@
 Ночной пайплайн: новые лиги → фичи → Optuna → walk-forward → валидация стратегий.
 
 Шаги:
-  1. Скачать новые лиги: E1, N1, B1, P1, T1, SC0, G1, A1
-  2. Пересобрать feature matrix (все 10 лиг)
-  3. Optuna тюнинг на E0+D1+E1 (100 trials)
+  1. Скачать новые лиги (NEW_LEAGUES) поверх собранных collect_football_history.py
+  2. Пересобрать feature matrix по всем лигам (ALL_LEAGUES)
+  3. Optuna тюнинг на OPTUNA_LEAGUES (100 trials)
   4. Обновить дефолтные параметры в football_model.py
   5. Walk-forward на всех лигах
   6. Strategy validation (selection 2006-2018 vs holdout 2019-2026)
@@ -13,8 +13,8 @@
 Время: ~3-4 часа
 Результаты:
   data/results/walkforward_results.parquet
-  data/results/walkforward_report.txt
   data/results/strategy_grid_full.csv
+  data/results/strategy_validation_report.txt
   data/results/overnight_summary.txt
 
 Запуск:
@@ -69,11 +69,10 @@ NEW_LEAGUES = {
     'T1': 'Super_Lig',
     'SC0': 'Scottish_Premiership',
     'G1': 'Super_League_Greece',
-    'A1': 'Austrian_Bundesliga',
 }
 
-# Все лиги (старые + новые)
-ALL_LEAGUES = ['E0', 'SP1', 'D1', 'I1', 'F1', 'E1', 'N1', 'B1', 'P1', 'T1', 'SC0', 'G1', 'A1']
+# Все лиги (старые + новые). A1 (Австрия) убрана: football-data.co.uk не отдаёт по ней данные.
+ALL_LEAGUES = ['E0', 'SP1', 'D1', 'I1', 'F1', 'E1', 'N1', 'B1', 'P1', 'T1', 'SC0', 'G1']
 
 # Лиги для Optuna тюнинга (самые качественные данные)
 OPTUNA_LEAGUES = ['E0', 'D1', 'E1']
@@ -446,15 +445,11 @@ def run_strategy_validation(results_df: pd.DataFrame) -> str:
         # Новые лиги (гегемоны + малоизвестные для американцев)
         [l for l in ['SC0'] if l in all_leagues],
         [l for l in ['G1'] if l in all_leagues],
-        [l for l in ['A1'] if l in all_leagues],
         [l for l in ['P1', 'SC0'] if l in all_leagues],
-        [l for l in ['P1', 'A1'] if l in all_leagues],
         [l for l in ['D1', 'SC0'] if l in all_leagues],
-        [l for l in ['D1', 'A1'] if l in all_leagues],
         [l for l in ['P1', 'D1', 'SC0'] if l in all_leagues],
-        [l for l in ['P1', 'D1', 'A1'] if l in all_leagues],
-        [l for l in ['P1', 'D1', 'SC0', 'A1'] if l in all_leagues],
-        [l for l in ['SC0', 'G1', 'A1'] if l in all_leagues],
+        [l for l in ['P1', 'D1'] if l in all_leagues],
+        [l for l in ['SC0', 'G1'] if l in all_leagues],
     ]
     # убираем дубликаты
     seen = set()
@@ -503,18 +498,17 @@ def run_strategy_validation(results_df: pd.DataFrame) -> str:
     lines.append(f'Holdout:   {df_hld["Season"].min()} - {df_hld["Season"].max()}')
     lines.append(f'Лиги в данных: {all_leagues}')
 
-    lines.append(f'\n{"ТОП-15 по Holdout ROI (min 10 ставок на holdout)":}')
-    lines.append(f'{"Лиги":<25} {"Исходы":<12} {"Edge":<7} '
-                 f'{"SEL_bets":<10} {"SEL_ROI":<10} '
-                 f'{"HLD_bets":<10} {"HLD_ROI":<10} {"HLD_Win%"}')
-    lines.append('-' * 95)
+    top = grid_df_valid.head(15).rename(columns={
+        'leagues': 'Лиги', 'outcomes': 'Исходы', 'edge_min': 'Edge',
+        'sel_bets': 'SEL_bets', 'sel_roi': 'SEL_ROI',
+        'hld_bets': 'HLD_bets', 'hld_roi': 'HLD_ROI', 'hld_win': 'HLD_Win%',
+    })[['Лиги', 'Исходы', 'Edge', 'SEL_bets', 'SEL_ROI', 'HLD_bets', 'HLD_ROI', 'HLD_Win%']].copy()
+    for col in ('SEL_ROI', 'HLD_ROI'):
+        top[col] = top[col].map('{:+.1%}'.format)
+    top['HLD_Win%'] = top['HLD_Win%'].map('{:.1%}'.format)
 
-    for _, row in grid_df_valid.head(15).iterrows():
-        lines.append(
-            f'{row["leagues"]:<25} {row["outcomes"]:<12} {row["edge_min"]:<7.2f} '
-            f'{row["sel_bets"]:<10.0f} {row["sel_roi"]:+.1%}    '
-            f'{row["hld_bets"]:<10.0f} {row["hld_roi"]:+.1%}    {row["hld_win"]:.1%}'
-        )
+    lines.append('\nТОП-15 по Holdout ROI (min 10 ставок на holdout)')
+    lines.append(top.to_string(index=False))
 
     # Отдельно: сезонная разбивка топ-1 стратегии на holdout
     if len(grid_df_valid) > 0:
