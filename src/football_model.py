@@ -1,10 +1,10 @@
 """
-Football Prediction Model — Ensemble (Dixon-Coles + ELO + XGBoost).
+Football Prediction Model: ансамбль Dixon-Coles + ELO + XGBoost.
 
 Архитектура:
-  1. Dixon-Coles model (Bivariate Poisson) — baseline
-  2. ELO-based logistic model — быстрый рейтинговый прогноз
-  3. XGBoost на фичах — нелинейные паттерны
+  1. Dixon-Coles (Bivariate Poisson): baseline
+  2. ELO logistic: быстрый рейтинговый прогноз
+  3. XGBoost на фичах: нелинейные паттерны
   4. Ensemble: взвешенная комбинация → Isotonic Regression калибровка
   5. Value detector: model_prob vs Polymarket price → Quarter Kelly sizing
 
@@ -39,11 +39,6 @@ log = logging.getLogger(__name__)
 
 MODELS_DIR = Path('data/models')
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
-
-
-# ============================================================
-# 1. Dixon-Coles Model
-# ============================================================
 
 def _dc_tau(x, y, lambda_, mu, rho):
     """Dixon-Coles correction for low-scoring matches (scalar version)."""
@@ -107,7 +102,7 @@ def _dc_log_likelihood_vec(params, arrays: dict, n_teams: int, xi: float = 0.0) 
     lambda_ = np.exp(attack[h_idx] - defence[a_idx] + home_adv)
     mu = np.exp(attack[a_idx] - defence[h_idx])
 
-    # Clamp to avoid numerical issues
+    # без клампа rho уводит tau в отрицательные значения
     lambda_ = np.clip(lambda_, 1e-10, 20.0)
     mu = np.clip(mu, 1e-10, 20.0)
 
@@ -121,14 +116,6 @@ def _dc_log_likelihood_vec(params, arrays: dict, n_teams: int, xi: float = 0.0) 
         ll *= weights
 
     return -ll.sum()
-
-
-# Legacy wrapper for compatibility
-def _dc_log_likelihood(params, matches: pd.DataFrame, teams: list[str],
-                        xi: float = 0.0) -> float:
-    """Legacy wrapper — converts DataFrame to arrays each call. Slow, use _dc_log_likelihood_vec."""
-    arrays = _prepare_match_arrays(matches, teams)
-    return _dc_log_likelihood_vec(params, arrays, len(teams), xi)
 
 
 class DixonColesModel:
@@ -174,12 +161,11 @@ class DixonColesModel:
         )
         n = len(self.teams_)
 
-        # Начальные параметры
         x0 = np.zeros(2 * n + 2)
         x0[2 * n] = 0.1    # home_adv
         x0[2 * n + 1] = -0.1  # rho
 
-        # Ограничения: сумма атак = 0 (identifiability)
+        # сумма атак = 0, иначе параметры не идентифицируются
         constraints = [{'type': 'eq', 'fun': lambda p: np.sum(p[:n])}]
 
         bounds = (
@@ -189,7 +175,7 @@ class DixonColesModel:
             [(-0.5, 0.5)]             # rho
         )
 
-        # Pre-compute arrays once (not per optimizer iteration)
+        # один раз, а не на каждой итерации оптимизатора
         arrays = _prepare_match_arrays(df, self.teams_)
 
         result = minimize(
@@ -237,13 +223,12 @@ class DixonColesModel:
             poisson.pmf(range(mg + 1), mu),
         )
 
-        # Dixon-Coles коррекция для низких счетов
+        # коррекция Dixon-Coles для счетов 0-0, 1-0, 0-1, 1-1
         for i in range(min(2, mg + 1)):
             for j in range(min(2, mg + 1)):
                 tau = _dc_tau(i, j, lambda_, mu, self.rho_)
                 score_matrix[i, j] *= tau
 
-        # Нормализуем (после коррекции сумма != 1)
         score_matrix /= score_matrix.sum()
         return score_matrix
 
@@ -263,11 +248,6 @@ class DixonColesModel:
 
         return {'home': p_home, 'draw': p_draw, 'away': p_away}
 
-
-# ============================================================
-# 2. ELO Logistic Model
-# ============================================================
-
 class EloModel:
     """
     Простая логистическая регрессия на ELO difference → H/D/A вероятности.
@@ -286,7 +266,6 @@ class EloModel:
         df = df.dropna(subset=['elo_diff', 'target'])
         X = df[['elo_diff']].values
 
-        # Бинарный: home win vs not
         y_home = (df['target'] == 'H').astype(int).values
         y_away = (df['target'] == 'A').astype(int).values
 
@@ -302,59 +281,55 @@ class EloModel:
         p_home = self.model_home.predict_proba(X)[0, 1]
         p_away = self.model_away.predict_proba(X)[0, 1]
         p_draw = max(0.0, 1.0 - p_home - p_away)
-        # Нормализуем
         total = p_home + p_draw + p_away
         return {'home': p_home / total, 'draw': p_draw / total, 'away': p_away / total}
 
-
-# ============================================================
-# 3. XGBoost Model
-# ============================================================
-
 # Фичи в том порядке, в котором они идут в матрице
 FEATURE_COLS = [
-    # Tier 1 — ELO
+    # ELO
     'elo_diff', 'elo_home', 'elo_away',
-    # Tier 1 — Form
+    # форма
     'home_goals_scored_last5', 'home_goals_scored_last10', 'home_goals_scored_last20',
     'home_goals_conceded_last5', 'home_goals_conceded_last10', 'home_goals_conceded_last20',
     'home_points_last5', 'home_points_last10', 'home_points_last20',
     'away_goals_scored_last5', 'away_goals_scored_last10', 'away_goals_scored_last20',
     'away_goals_conceded_last5', 'away_goals_conceded_last10', 'away_goals_conceded_last20',
     'away_points_last5', 'away_points_last10', 'away_points_last20',
-    # Tier 1 — Rolling xG (Understat, доступно с ~2014, NaN для старых матчей)
+    # rolling xG, Understat есть только с ~2014, дальше NaN
     'home_xg_scored_last5', 'home_xg_scored_last10',
     'home_xg_conceded_last5', 'home_xg_conceded_last10',
     'away_xg_scored_last5', 'away_xg_scored_last10',
     'away_xg_conceded_last5', 'away_xg_conceded_last10',
-    # Tier 1 — Pinnacle implied probs (не leakage: мы торгуем на Polymarket, не на Pinnacle)
+    # Pinnacle implied probs. Таргета не видят, но в бэктесте Pinnacle же
+    # выступает рынком (96% ставок), так что edge частично self-referential.
+    # Ablation без этих колонок: см. README, P1 держится (+11.1%).
     'implied_home', 'implied_draw', 'implied_away',
     'overround',
-    # Tier 2 — Shots
+    # удары в створ
     'home_shots_on_target_last5', 'home_shots_on_target_last10',
     'away_shots_on_target_last5', 'away_shots_on_target_last10',
-    # Tier 2 — Rest + Fixture congestion
+    # отдых и плотность календаря
     'home_days_rest', 'away_days_rest', 'rest_diff',
     'home_matches_last14', 'away_matches_last14', 'congestion_diff',
-    # Tier 2 — H2H
+    # H2H
     'h2h_home_winrate', 'h2h_away_winrate', 'h2h_draw_rate',
     'h2h_home_goals_avg', 'h2h_away_goals_avg',
-    # Tier 2 — League position
+    # позиция в таблице
     'home_league_pos_pct', 'away_league_pos_pct', 'league_pos_diff',
-    # Tier 2 — Draw tendency (ключевые для предсказания ничьих)
+    # склонность к ничьим, ключевое для draw-стратегий
     'home_draw_rate_last5', 'home_draw_rate_last10', 'home_draw_rate_last20',
     'away_draw_rate_last5', 'away_draw_rate_last10', 'away_draw_rate_last20',
-    # Tier 2 — Clean sheet rate (команды без пропущенных → 0-0 ничьи)
+    # сухие матчи дают больше 0-0
     'home_clean_sheet_rate_last5', 'home_clean_sheet_rate_last10',
     'away_clean_sheet_rate_last5', 'away_clean_sheet_rate_last10',
-    # Tier 2 — Total goals (низкая результативность → больше ничьих)
+    # низкая результативность коррелирует с ничьими
     'home_total_goals_last5', 'home_total_goals_last10',
     'away_total_goals_last5', 'away_total_goals_last10',
-    # Tier 2 — ELO momentum (команда в росте vs спаде)
+    # в росте или в спаде: уровень ELO этого не показывает
     'home_elo_momentum', 'away_elo_momentum',
-    # Tier 2 — Win/loss streak
+    # серия подряд
     'home_streak', 'away_streak',
-    # Tier 2 — Season stage
+    # стадия сезона
     'season_stage', 'home_season_matches_played', 'away_season_matches_played',
 ]
 
@@ -366,7 +341,6 @@ def build_feature_matrix(df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, list
     """
     df = df.dropna(subset=['target']).copy()
 
-    # Только те колонки, что есть в датафрейме
     available_cols = [c for c in FEATURE_COLS if c in df.columns]
 
     X = df[available_cols].values.astype(np.float32)
@@ -434,11 +408,6 @@ class XGBoostModel:
         imp = self.clf.feature_importances_
         return pd.Series(imp, index=self.feature_cols).sort_values(ascending=False)
 
-
-# ============================================================
-# 4. Ensemble + Calibration
-# ============================================================
-
 @dataclass
 class EnsembleWeights:
     dixon_coles: float = 0.000
@@ -495,7 +464,6 @@ class EnsembleModel:
             else:
                 self.xgb.fit(X, y, self.feature_cols)
 
-        # Калибровка
         calib_df = val_df if val_df is not None and len(val_df) > 0 else train_df
         log.info(f'Calibrating on {len(calib_df)} matches...')
         self._fit_calibration(calib_df)
@@ -511,7 +479,6 @@ class EnsembleModel:
         probs = {'home': 0.0, 'draw': 0.0, 'away': 0.0}
         total_w = 0.0
 
-        # Dixon-Coles
         try:
             dc_p = self.dc.predict_proba(home, away)
             for k in probs:
@@ -520,7 +487,6 @@ class EnsembleModel:
         except Exception:
             pass
 
-        # ELO
         elo_diff = feat_dict.get('elo_diff', 0.0)
         if not np.isnan(elo_diff):
             elo_p = self.elo_model.predict_proba(elo_diff)
@@ -528,7 +494,6 @@ class EnsembleModel:
                 probs[k] += w.elo * elo_p[k]
             total_w += w.elo
 
-        # XGBoost
         if self.xgb is not None and self.xgb.is_fitted:
             try:
                 xgb_p = self.xgb.predict_proba(feat_dict)
@@ -658,11 +623,6 @@ class EnsembleModel:
         log.info(f'Model loaded from {path}')
         return model
 
-
-# ============================================================
-# 5. Walk-Forward Validation
-# ============================================================
-
 def walk_forward_validate(df: pd.DataFrame,
                            n_train_seasons: int = 5,
                            min_test_matches: int = 200,
@@ -732,7 +692,7 @@ def walk_forward_validate(df: pd.DataFrame,
 
             # Market prices: Betfair exchange (prediction market proxy) если есть,
             # иначе Pinnacle implied probs.
-            # Betfair — peer-to-peer рынок без бана шарпов, аналог Polymarket.
+            # Betfair: peer-to-peer, шарпов не банят, ближайший аналог Polymarket
             bf_h = row.get('betfair_home', np.nan)
             if pd.notna(bf_h):
                 market = {
@@ -819,11 +779,6 @@ def walk_forward_validate(df: pd.DataFrame,
 
     return results
 
-
-# ============================================================
-# 6. Метрики
-# ============================================================
-
 def evaluate_predictions(df: pd.DataFrame) -> dict:
     """
     Вычисляет метрики качества прогнозов.
@@ -900,11 +855,6 @@ def evaluate_predictions(df: pd.DataFrame) -> dict:
     }
 
     return metrics
-
-
-# ============================================================
-# 7. Optuna Hyperparameter Tuning
-# ============================================================
 
 def tune_xgboost(features_df: pd.DataFrame, n_trials: int = 100) -> dict:
     """
@@ -1049,145 +999,6 @@ def tune_ensemble_weights(features_df: pd.DataFrame) -> EnsembleWeights:
     return EnsembleWeights(dixon_coles=float(w_opt[0]),
                            elo=float(w_opt[1]),
                            xgboost=float(w_opt[2]))
-
-
-# ============================================================
-# 8. SHAP Feature Importance
-# ============================================================
-
-def shap_analysis(model: 'XGBoostModel', X: np.ndarray,
-                   feature_cols: list[str]) -> pd.DataFrame:
-    """
-    SHAP feature importance для XGBoost-модели.
-
-    Returns:
-        DataFrame с колонками [feature, mean_abs_shap], отсортированный по важности.
-
-    Использование:
-        X, y, cols = build_feature_matrix(df)
-        model.fit(X, y, cols)
-        importance = shap_analysis(model, X, cols)
-        print(importance.head(15))
-    """
-    try:
-        import shap
-    except ImportError:
-        raise ImportError('pip install shap')
-
-    explainer = shap.TreeExplainer(model.clf)
-    shap_values = explainer.shap_values(X)
-
-    # XGBoost multiclass: shap_values может быть (n, features, n_classes) или list
-    if isinstance(shap_values, np.ndarray) and shap_values.ndim == 3:
-        mean_abs = np.abs(shap_values).mean(axis=(0, 2))
-    elif isinstance(shap_values, list):
-        mean_abs = np.mean([np.abs(sv).mean(0) for sv in shap_values], axis=0)
-    else:
-        mean_abs = np.abs(shap_values).mean(0)
-
-    importance = pd.DataFrame({
-        'feature': feature_cols,
-        'mean_abs_shap': mean_abs,
-    }).sort_values('mean_abs_shap', ascending=False).reset_index(drop=True)
-
-    return importance
-
-
-# ============================================================
-# 9. LLM Rebalancer (W-5 Framework)
-# ============================================================
-
-class LLMRebalancer:
-    """
-    Корректирует вероятности ансамбля через Claude API.
-
-    Подход W-5 Framework: LLM учитывает контекст матча
-    (форма, мотивация, ключевые игроки) и точечно корректирует вероятности,
-    особенно для ничьих и упсетов.
-
-    Ограничения:
-    - Максимальный сдвиг: ±10 п.п. (защита от галлюцинаций)
-    - Вызывать только для матчей с edge > 3% (экономия API)
-    - Использовать claude-haiku (дёшево, быстро)
-    """
-
-    MAX_SHIFT = 0.10
-
-    def __init__(self, api_key: Optional[str] = None):
-        try:
-            import anthropic
-        except ImportError:
-            raise ImportError('pip install anthropic')
-
-        import os
-        import anthropic as _anthropic
-        self._anthropic = _anthropic
-        self.client = _anthropic.Anthropic(
-            api_key=api_key or os.getenv('ANTHROPIC_API_KEY')
-        )
-
-    def adjust_proba(self, home: str, away: str,
-                      base_probs: dict[str, float],
-                      context: str = '',
-                      model: str = 'claude-haiku-4-5-20251001') -> dict[str, float]:
-        """
-        Корректирует вероятности с учётом контекста.
-
-        Args:
-            home:       домашняя команда
-            away:       гостевая команда
-            base_probs: {'home': 0.45, 'draw': 0.27, 'away': 0.28}
-            context:    доп. контекст (травмы, форма, новости с Telegram)
-            model:      claude модель (haiku — дешевле)
-
-        Returns:
-            Откорректированные вероятности (нормализованные)
-        """
-        import json
-
-        prompt = f"""You are a football match outcome predictor. Adjust match probabilities based on context.
-
-Match: {home} (home) vs {away} (away)
-Base model probabilities:
-  Home win: {base_probs['home']:.1%}
-  Draw:     {base_probs['draw']:.1%}
-  Away win: {base_probs['away']:.1%}
-
-Additional context:
-{context if context else 'No additional context available.'}
-
-Rules:
-1. Only adjust if context contains clearly significant information (injuries to key players, suspensions, motivation differences)
-2. Maximum adjustment: ±10 percentage points per outcome
-3. Probabilities must sum to 1.0
-4. Be conservative — in absence of strong signals, return base probabilities unchanged
-
-Respond ONLY with valid JSON: {{"home": <float>, "draw": <float>, "away": <float>}}"""
-
-        try:
-            msg = self.client.messages.create(
-                model=model,
-                max_tokens=80,
-                messages=[{'role': 'user', 'content': prompt}],
-            )
-            text = msg.content[0].text.strip()
-            # Извлекаем JSON даже если есть лишний текст
-            start = text.find('{')
-            end = text.rfind('}') + 1
-            adjusted = json.loads(text[start:end])
-
-            result = {}
-            for k in ('home', 'draw', 'away'):
-                adj = float(adjusted.get(k, base_probs[k]))
-                shift = np.clip(adj - base_probs[k], -self.MAX_SHIFT, self.MAX_SHIFT)
-                result[k] = max(0.01, base_probs[k] + shift)
-
-            total = sum(result.values())
-            return {k: v / total for k, v in result.items()}
-
-        except Exception as e:
-            log.warning(f'LLMRebalancer failed ({e}), returning base probs')
-            return base_probs
 
 
 if __name__ == '__main__':

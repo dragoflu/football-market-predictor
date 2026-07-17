@@ -1,5 +1,5 @@
 """
-Robustness Check — проверяем устойчивость стратегий к смене параметров модели.
+Robustness Check: устойчивость стратегий к смене параметров модели.
 
 Логика:
   1. Запускаем Optuna N раз с разными random_seed
@@ -50,14 +50,12 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# ============================================================
 # Конфигурация
-# ============================================================
 
-# Разные сиды для Optuna — проверяем устойчивость
+# разные сиды Optuna: если стратегия держится на всех, это не переобучение под сид
 RANDOM_SEEDS = [42, 7, 13, 99, 2025]
 
-# Trials на один прогон (меньше чем overnight — нужна скорость)
+# меньше чем в overnight: нужна скорость, 5 прогонов подряд
 OPTUNA_TRIALS = 30
 
 # Лиги для тюнинга Optuna (те же что в overnight)
@@ -75,12 +73,10 @@ STRATEGIES = [
     {'name': 'D1+P1 home+draw≥0.18',     'leagues': ['D1','P1'],         'outcomes': ['home','draw'],  'edge': 0.18},
 ]
 
-N_HLD_SEASONS = 7  # 2019/2020 — 2025/2026
+N_HLD_SEASONS = 7  # 2019/2020 .. 2025/2026
 
 
-# ============================================================
 # Утилиты
-# ============================================================
 
 def calc_strategy_roi(df_hld: pd.DataFrame, strategy: dict) -> dict:
     mask = (
@@ -202,9 +198,7 @@ def run_walkforward_all(features_df: pd.DataFrame) -> pd.DataFrame:
     return combined
 
 
-# ============================================================
 # Main
-# ============================================================
 
 def main():
     t_total = time.time()
@@ -216,7 +210,7 @@ def main():
     # Загружаем feature matrix (уже собрана overnight pipeline)
     feat_path = Path('data/processed/football_features.parquet')
     if not feat_path.exists():
-        log.error('Нет data/processed/football_features.parquet — сначала запусти overnight_pipeline.py')
+        log.error('Нет data/processed/football_features.parquet, сначала запусти overnight_pipeline.py')
         return
 
     features_df = pd.read_parquet(feat_path)
@@ -231,7 +225,7 @@ def main():
 
     for i, seed in enumerate(RANDOM_SEEDS):
         log.info(f'\n{"="*60}')
-        log.info(f'ПРОГОН {i+1}/{len(RANDOM_SEEDS)} — seed={seed}')
+        log.info(f'ПРОГОН {i+1}/{len(RANDOM_SEEDS)}, seed={seed}')
         log.info(f'{"="*60}')
 
         # 1. Optuna с этим seed
@@ -266,9 +260,6 @@ def main():
 
         all_runs.append(run_result)
 
-    # ============================================================
-    # Итоговый отчёт
-    # ============================================================
     log.info(f'\n{"="*60}')
     log.info('ROBUSTNESS REPORT')
     log.info(f'{"="*60}')

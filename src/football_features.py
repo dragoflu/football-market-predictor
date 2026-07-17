@@ -14,10 +14,6 @@ import pandas as pd
 from pathlib import Path
 
 
-# ============================================================
-# ELO Rating
-# ============================================================
-
 ELO_INIT = 1500      # стартовый рейтинг
 ELO_K = 20           # скорость обновления
 ELO_HOME_ADV = 100   # бонус хозяев в единицах ELO
@@ -42,9 +38,9 @@ def build_elo_ratings(df: pd.DataFrame) -> pd.DataFrame:
 
     Returns:
         df с новыми колонками:
-            elo_home_before, elo_away_before  — рейтинг ДО матча (для фич)
-            elo_home_after, elo_away_after    — рейтинг ПОСЛЕ (для обновления)
-            elo_diff                          — elo_home_before - elo_away_before + ELO_HOME_ADV
+            elo_home_before, elo_away_before: рейтинг ДО матча, идёт в фичи
+            elo_home_after, elo_away_after: рейтинг ПОСЛЕ, для следующего матча
+            elo_diff: elo_home_before - elo_away_before + ELO_HOME_ADV
     """
     df = df.copy().sort_values(['League', 'Date']).reset_index(drop=True)
     ratings: dict[str, float] = {}
@@ -64,11 +60,9 @@ def build_elo_ratings(df: pd.DataFrame) -> pd.DataFrame:
         elo_home_before.append(r_home)
         elo_away_before.append(r_away)
 
-        # Ожидаемое с учётом домашнего преимущества
         exp_home = _expected_elo(r_home + ELO_HOME_ADV, r_away)
         exp_away = 1.0 - exp_home
 
-        # Фактический результат: H=1, D=0.5, A=0
         result = row.get('FTR', None)
         if result == 'H':
             actual_home, actual_away = 1.0, 0.0
@@ -77,7 +71,7 @@ def build_elo_ratings(df: pd.DataFrame) -> pd.DataFrame:
         elif result == 'D':
             actual_home, actual_away = 0.5, 0.5
         else:
-            # Нет результата — не обновляем (будущий матч)
+            # будущий матч, результата ещё нет: рейтинг не трогаем
             elo_home_after.append(r_home)
             elo_away_after.append(r_away)
             continue
@@ -100,10 +94,6 @@ def build_elo_ratings(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ============================================================
-# Rolling Stats (walk-forward safe)
-# ============================================================
-
 def _rolling_team_stats(df: pd.DataFrame, team: str, date: pd.Timestamp,
                          windows: list[int] = [5, 10, 20],
                          home_only: bool = False,
@@ -112,7 +102,6 @@ def _rolling_team_stats(df: pd.DataFrame, team: str, date: pd.Timestamp,
     Вычисляет rolling статистику команды ДО даты матча.
     Использует только прошлые матчи (строго < date).
     """
-    # Все матчи команды до этой даты
     home_mask = (df['HomeTeam'] == team) & (df['Date'] < date)
     away_mask = (df['AwayTeam'] == team) & (df['Date'] < date)
 
@@ -171,20 +160,20 @@ def _rolling_team_stats(df: pd.DataFrame, team: str, date: pd.Timestamp,
         result[f'points_last{w}'] = np.nanmean(points)
         result[f'shots_on_target_last{w}'] = np.nanmean(sot)
 
-        # Total goals (proxy for match openness — низкое значение → больше ничьих)
+        # низкая результативность коррелирует с ничьими
         total_goals = [g + c for g, c in zip(goals_scored, goals_conceded)
                        if not np.isnan(g) and not np.isnan(c)]
         result[f'total_goals_last{w}'] = np.mean(total_goals) if total_goals else np.nan
 
-        # Draw rate (некоторые команды систематически чаще ничьи)
+        # некоторые команды систематически играют вничью чаще
         draws_list = [1 if p == 1 else 0 for p in points]
         result[f'draw_rate_last{w}'] = np.mean(draws_list) if draws_list else np.nan
 
-        # Clean sheet rate (нет пропущенных голов → больше 0-0 ничьих)
+        # сухие матчи дают больше 0-0
         cs_list = [1 if not np.isnan(c) and c == 0 else 0 for c in goals_conceded]
         result[f'clean_sheet_rate_last{w}'] = np.mean(cs_list) if cs_list else np.nan
 
-        # Rolling xG (Understat данные, доступны с ~2014)
+        # Understat, есть только с ~2014, дальше NaN
         xg_scored, xg_conceded = [], []
         for _, xrow in recent.iterrows():
             if xrow['HomeTeam'] == team:
@@ -196,8 +185,7 @@ def _rolling_team_stats(df: pd.DataFrame, team: str, date: pd.Timestamp,
         result[f'xg_scored_last{w}'] = np.nanmean(xg_scored) if xg_scored else np.nan
         result[f'xg_conceded_last{w}'] = np.nanmean(xg_conceded) if xg_conceded else np.nan
 
-    # ELO momentum: изменение ELO за последние 5 матчей
-    # (команда в росте vs в спаде — нелинейный сигнал)
+    # команда в росте или в спаде: ELO уровень этого не показывает
     if 'elo_home_after' in past.columns or 'elo_away_after' in past.columns:
         recent5 = past.tail(5)
         elo_vals = []
@@ -215,7 +203,7 @@ def _rolling_team_stats(df: pd.DataFrame, team: str, date: pd.Timestamp,
     else:
         result['elo_momentum'] = np.nan
 
-    # Win/loss/draw streak (серия подряд — нелинейный психологический сигнал)
+    # серия подряд, знак = направление: +N побед, -N поражений, 0 ничья
     if len(past) > 0:
         last_result = None
         streak = 0
@@ -284,13 +272,12 @@ def _precompute_league_positions(df: pd.DataFrame) -> dict:
             home = row.HomeTeam
             away = row.AwayTeam
 
-            # Инициализируем новые команды
             for t in (home, away):
                 if t not in pts:
                     pts[t] = 0
                     gd[t] = 0
 
-            # Позиция ДО этого матча
+            # позицию берём ДО матча, иначе утечка результата в фичу
             all_teams = list(pts.keys())
             n_teams = len(all_teams)
             if n_teams > 0:
@@ -313,7 +300,7 @@ def _precompute_league_positions(df: pd.DataFrame) -> dict:
                     'league_pos_diff': np.nan,
                 }
 
-            # Обновляем таблицу ПОСЛЕ записи позиции
+            # и только теперь обновляем: порядок здесь критичен
             ftr = getattr(row, 'FTR', None)
             gh = getattr(row, 'FTHG', 0) or 0
             ga = getattr(row, 'FTAG', 0) or 0
@@ -334,7 +321,7 @@ def _h2h_stats(df: pd.DataFrame, home_team: str, away_team: str,
                date: pd.Timestamp, n: int = 10) -> dict:
     """
     H2H статистика между двумя командами.
-    Минимум 3 встречи за 5 лет — иначе NaN.
+    Минимум 3 встречи за 5 лет, иначе NaN.
     """
     cutoff = date - pd.Timedelta(days=5 * 365)
 
@@ -369,7 +356,7 @@ def _h2h_stats(df: pd.DataFrame, home_team: str, away_team: str,
             elif ftr == 'A': away_wins += 1
             elif ftr == 'D': draws += 1
         else:
-            # Перевёрнутый матч
+            # команды местами: считаем от лица home_team
             hg = row.get('FTAG', np.nan)
             ag = row.get('FTHG', np.nan)
             ftr = row.get('FTR')
@@ -394,7 +381,7 @@ def _implied_probs(row: pd.Series) -> dict:
     """
     Implied probabilities для ФИЧЕЙ модели (вход в XGBoost/ELO).
     Приоритет: Pinnacle > B365 > Avg.
-    НЕ используем Betfair здесь — он нужен только для расчёта edge (market comparison).
+    НЕ используем Betfair здесь: он нужен только для расчёта edge.
     Если использовать Betfair как фичу И как market → circular dependency.
     """
     for prefix, h, d, a in [
@@ -424,10 +411,6 @@ def _implied_probs(row: pd.Series) -> dict:
     }
 
 
-# ============================================================
-# Main Feature Builder
-# ============================================================
-
 ROLLING_WINDOWS = [5, 10, 20]
 
 
@@ -456,14 +439,12 @@ def build_features(df: pd.DataFrame, xg_df: pd.DataFrame | None = None,
         print(f'Building ELO ratings for {len(df):,} matches...')
     df = build_elo_ratings(df)
 
-    # Если есть xG данные — мержим
     if xg_df is not None:
         xg_merge_cols = ['Date', 'HomeTeam', 'AwayTeam', 'League']
         xg_keep = xg_merge_cols + [c for c in xg_df.columns if c not in df.columns]
         xg_df = xg_df[[c for c in xg_keep if c in xg_df.columns]]
         df = df.merge(xg_df, on=xg_merge_cols, how='left')
 
-    # Предвычисляем позиции в таблице для всех матчей за один проход O(n)
     if verbose:
         print('Precomputing league positions...')
     league_positions = _precompute_league_positions(df)

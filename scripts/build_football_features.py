@@ -2,7 +2,7 @@
 Строит полную матрицу фичей для всех 5 лиг и сохраняет в parquet.
 Запускать на сервере отца (Dell OptiPlex, 32GB RAM).
 
-Время: ~20-40 мин (league_position O(n^2) — самое медленное)
+Время: ~20-40 мин, самое медленное это league_position O(n^2)
 Результат: data/processed/football_features.parquet
 
 Запуск: python scripts/build_football_features.py
@@ -65,7 +65,7 @@ def main():
     for p in DATA_DIR.glob('xg_*.parquet'):
         xg_df = read_parquet_safe(p)
         xg_dfs.append(xg_df)
-        log.info(f'  xG: {p.name} — {len(xg_df):,} matches')
+        log.info(f'  xG: {p.name} - {len(xg_df):,} matches')
 
     xg_all = pd.concat(xg_dfs, ignore_index=True) if xg_dfs else None
 

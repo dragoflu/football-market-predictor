@@ -58,9 +58,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# ============================================================
 # Конфигурация
-# ============================================================
 
 # Новые лиги для скачивания
 NEW_LEAGUES = {
@@ -90,9 +88,7 @@ ODDS_COLUMNS = ['B365H', 'B365D', 'B365A', 'BWH', 'BWD', 'BWA',
 STATS_COLUMNS = ['HS', 'AS', 'HST', 'AST', 'HC', 'AC', 'HF', 'AF', 'HY', 'AY', 'HR', 'AR']
 
 
-# ============================================================
 # Шаг 1: Сбор новых лиг
-# ============================================================
 
 def generate_season_codes(start=2000, end=2025):
     return [f'{y % 100:02d}{(y+1) % 100:02d}' for y in range(start, end + 1)]
@@ -140,7 +136,7 @@ def download_new_leagues():
                     skipped.append(code)
                     continue
 
-            log.info(f'  [{code}] {name} — скачиваем...')
+            log.info(f'  [{code}] {name}: скачиваем...')
             all_seasons = []
 
             for sc in season_codes:
@@ -220,9 +216,7 @@ def download_new_leagues():
     return downloaded + skipped
 
 
-# ============================================================
 # Шаг 2: Rebuild feature matrix
-# ============================================================
 
 def build_feature_matrix_all():
     log.info('\n=== ШАГ 2: Пересборка feature matrix (все лиги) ===')
@@ -282,9 +276,7 @@ def build_feature_matrix_all():
     return final
 
 
-# ============================================================
 # Шаг 3: Optuna тюнинг
-# ============================================================
 
 def run_optuna(features_df: pd.DataFrame):
     log.info(f'\n=== ШАГ 3: Optuna тюнинг ({OPTUNA_TRIALS} trials, лиги: {OPTUNA_LEAGUES}) ===')
@@ -315,9 +307,7 @@ def run_optuna(features_df: pd.DataFrame):
     return best_params, best_weights
 
 
-# ============================================================
 # Шаг 4: Обновить параметры в football_model.py
-# ============================================================
 
 def patch_model_params(best_params: dict, best_weights):
     """Патчит дефолтные параметры в src/football_model.py."""
@@ -348,7 +338,7 @@ def patch_model_params(best_params: dict, best_weights):
         text = text[:old_xgb.start()] + new_xgb + text[old_xgb.end():]
         log.info('  XGBoostModel defaults обновлены')
     else:
-        log.warning('  Не нашли XGBoostModel.__init__ — пропускаем патч XGB')
+        log.warning('  Не нашли XGBoostModel.__init__, пропускаем патч XGB')
 
     # Патчим EnsembleWeights
     old_ew = re.search(
@@ -368,15 +358,13 @@ def patch_model_params(best_params: dict, best_weights):
         text = text[:old_ew.start()] + new_ew + text[old_ew.end():]
         log.info('  EnsembleWeights defaults обновлены')
     else:
-        log.warning('  Не нашли EnsembleWeights — пропускаем патч весов')
+        log.warning('  Не нашли EnsembleWeights, пропускаем патч весов')
 
     model_path.write_text(text, encoding='utf-8')
     log.info(f'  {model_path} обновлён')
 
 
-# ============================================================
 # Шаг 5: Walk-forward
-# ============================================================
 
 def run_walkforward(features_df: pd.DataFrame) -> pd.DataFrame:
     log.info('\n=== ШАГ 5: Walk-forward validation (все лиги) ===')
@@ -411,9 +399,7 @@ def run_walkforward(features_df: pd.DataFrame) -> pd.DataFrame:
     return combined
 
 
-# ============================================================
 # Шаг 6: Strategy validation
-# ============================================================
 
 def calc_roi(df):
     bets = df[df['kelly_size'] > 0]
@@ -445,9 +431,9 @@ def run_strategy_validation(results_df: pd.DataFrame) -> str:
     df_hld = results_df[results_df['year'] >= 2019]
 
     all_leagues = sorted(results_df['League'].unique())
-    log.info(f'  Selection: {df_sel["Season"].min()} — {df_sel["Season"].max()} '
+    log.info(f'  Selection: {df_sel["Season"].min()} - {df_sel["Season"].max()} '
              f'({df_sel["Season"].nunique()} сезонов)')
-    log.info(f'  Holdout:   {df_hld["Season"].min()} — {df_hld["Season"].max()} '
+    log.info(f'  Holdout:   {df_hld["Season"].min()} - {df_hld["Season"].max()} '
              f'({df_hld["Season"].nunique()} сезонов)')
 
     # Grid search на selection
@@ -513,8 +499,8 @@ def run_strategy_validation(results_df: pd.DataFrame) -> str:
     lines.append('\n' + '='*70)
     lines.append('STRATEGY VALIDATION REPORT')
     lines.append('='*70)
-    lines.append(f'\nSelection: {df_sel["Season"].min()} — {df_sel["Season"].max()}')
-    lines.append(f'Holdout:   {df_hld["Season"].min()} — {df_hld["Season"].max()}')
+    lines.append(f'\nSelection: {df_sel["Season"].min()} - {df_sel["Season"].max()}')
+    lines.append(f'Holdout:   {df_hld["Season"].min()} - {df_hld["Season"].max()}')
     lines.append(f'Лиги в данных: {all_leagues}')
 
     lines.append(f'\n{"ТОП-15 по Holdout ROI (min 10 ставок на holdout)":}')
@@ -560,9 +546,7 @@ def run_strategy_validation(results_df: pd.DataFrame) -> str:
     return report
 
 
-# ============================================================
 # Финальный отчёт
-# ============================================================
 
 def print_walkforward_summary(results_df: pd.DataFrame):
     log.info('\n=== Walk-Forward Summary ===')
@@ -599,9 +583,7 @@ def print_walkforward_summary(results_df: pd.DataFrame):
         f.write(report)
 
 
-# ============================================================
 # Main
-# ============================================================
 
 def main():
     t_total = time.time()
@@ -620,7 +602,7 @@ def main():
         # 2. Фичи
         t0 = time.time()
         features_df = build_feature_matrix_all()
-        summary.append(f'Шаг 2 (фичи):     {(time.time()-t0)/60:.1f} мин — '
+        summary.append(f'Шаг 2 (фичи):     {(time.time()-t0)/60:.1f} мин, '
                        f'{len(features_df):,} матчей × {len(features_df.columns)} фичей')
 
         # 3. Optuna
@@ -641,7 +623,7 @@ def main():
         # 5. Walk-forward
         t0 = time.time()
         results_df = run_walkforward(features_df)
-        summary.append(f'Шаг 5 (WF):       {(time.time()-t0)/60:.1f} мин — {len(results_df):,} матчей')
+        summary.append(f'Шаг 5 (WF):       {(time.time()-t0)/60:.1f} мин, {len(results_df):,} матчей')
 
         # 6. Strategy validation
         t0 = time.time()
@@ -657,7 +639,7 @@ def main():
 
     elapsed = (time.time() - t_total) / 60
     log.info('\n' + '='*60)
-    log.info(f'OVERNIGHT PIPELINE DONE — {elapsed:.1f} мин')
+    log.info(f'OVERNIGHT PIPELINE DONE за {elapsed:.1f} мин')
     log.info('='*60)
     for s in summary:
         log.info(f'  {s}')

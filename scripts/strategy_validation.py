@@ -22,7 +22,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 RESULTS_PATH = Path('data/results/walkforward_results.parquet')
-SPLIT_YEAR = 2019  # до — selection, с — holdout
+SPLIT_YEAR = 2019  # раньше: selection, начиная с: holdout
 
 
 def calc_roi(df: pd.DataFrame) -> dict:
@@ -154,8 +154,8 @@ def main():
     hld_seasons = sorted(df_hld['Season'].unique())
 
     print(f'Загружено: {len(df):,} матчей')
-    print(f'Selection: {sel_seasons[0]} — {sel_seasons[-1]} ({len(sel_seasons)} сезонов, {len(df_sel):,} матчей)')
-    print(f'Holdout:   {hld_seasons[0]} — {hld_seasons[-1]} ({len(hld_seasons)} сезонов, {len(df_hld):,} матчей)')
+    print(f'Selection: {sel_seasons[0]} - {sel_seasons[-1]} ({len(sel_seasons)} сезонов, {len(df_sel):,} матчей)')
+    print(f'Holdout:   {hld_seasons[0]} - {hld_seasons[-1]} ({len(hld_seasons)} сезонов, {len(df_hld):,} матчей)')
 
     # Шаг 1: grid search ТОЛЬКО на selection
     print('\n\n--- ШАГ 1: Grid search на selection периоде (2006-2018) ---')
@@ -163,7 +163,7 @@ def main():
 
     # Шаг 2: берём топ-3 стратегии из selection и проверяем на holdout
     print('\n\n--- ШАГ 2: Валидация топ стратегий на holdout (2019–2026) ---')
-    print('(Этот раздел трогаем только ОДИН раз — финальная честная проверка)\n')
+    print('(Этот раздел трогаем только ОДИН раз: финальная честная проверка)\n')
 
     top3 = grid_sel.head(3)
     for _, row in top3.iterrows():
@@ -176,28 +176,28 @@ def main():
     # Шаг 3: проверяем конкретные гипотезы на holdout
     print('\n\n--- ШАГ 3: Проверка гипотез на holdout ---')
 
-    print('(A) D1+E0, draw, edge≥0.25 — гипотеза из предыдущего анализа')
+    print('(A) D1+E0, draw, edge≥0.25: гипотеза из предыдущего анализа')
     validate_strategy(df_hld,
                       leagues=['D1', 'E0'],
                       outcomes=['draw'],
                       edge_min=0.25,
                       label='D1+E0 | draw | edge≥0.25  [pre-registered]')
 
-    print('\n(B) D1+E0+E1, home, edge≥0.25 — новая гипотеза из grid')
+    print('\n(B) D1+E0+E1, home, edge≥0.25: новая гипотеза из grid')
     validate_strategy(df_hld,
                       leagues=['D1', 'E0', 'E1'],
                       outcomes=['home'],
                       edge_min=0.25,
                       label='D1+E0+E1 | home | edge≥0.25  [new]')
 
-    print('\n(C) B1+P1, draw+away, edge≥0.25 — новые лиги')
+    print('\n(C) B1+P1, draw+away, edge≥0.25: новые лиги')
     validate_strategy(df_hld,
                       leagues=['B1', 'P1'],
                       outcomes=['draw', 'away'],
                       edge_min=0.25,
                       label='B1+P1 | draw+away | edge≥0.25  [new]')
 
-    print('\n(D) SP1, away, edge≥0.20 — лучшая SP1 стратегия')
+    print('\n(D) SP1, away, edge≥0.20: лучшая SP1 стратегия')
     validate_strategy(df_hld,
                       leagues=['SP1'],
                       outcomes=['away'],
@@ -223,9 +223,9 @@ def main():
             decay = sel_m["roi"] - hld_m["roi"]
             print(f'  Деградация:    {decay:+.1%} п.п.')
             if hld_m["roi"] > 0:
-                print('  ✓ Edge сохранился на holdout')
+                print('  Edge сохранился на holdout')
             else:
-                print('  ✗ Edge не подтвердился — likely overfitting')
+                print('  Edge не подтвердился, likely overfitting')
         else:
             print(f'  Holdout: нет ставок (мало данных)')
 

@@ -213,9 +213,9 @@ def process_league(league_code: str, league_name: str, client: httpx.Client) -> 
 def compute_implied_probs(df: pd.DataFrame) -> pd.DataFrame:
     """
     Добавляет implied probabilities из трёх источников:
-      - Pinnacle (PSH/D/A) — sharp bookmaker, основной бенчмарк
-      - Betfair exchange closing (BFEH/D/A) — prediction market proxy (ближайший аналог Polymarket)
-      - B365 — fallback если нет Pinnacle
+      - Pinnacle (PSH/D/A): sharp bookmaker, основной бенчмарк
+      - Betfair exchange closing (BFEH/D/A): prediction market, ближайший аналог Polymarket
+      - B365: fallback если нет Pinnacle
     """
     def _implied(h_col, d_col, a_col, prefix, df):
         if not all(c in df.columns for c in [h_col, d_col, a_col]):
@@ -230,16 +230,16 @@ def compute_implied_probs(df: pd.DataFrame) -> pd.DataFrame:
         df[f'{prefix}_overround'] = total
         return df
 
-    # Pinnacle — sharp bookie (нет margin bias)
+    # Pinnacle: sharp bookie, margin bias минимальный
     df = _implied('PSH', 'PSD', 'PSA', 'pinnacle', df)
 
-    # Betfair exchange closing — prediction market, аналог Polymarket
+    # Betfair exchange closing: prediction market, аналог Polymarket
     df = _implied('BFEH', 'BFED', 'BFEA', 'betfair', df)
 
-    # B365 — fallback
+    # B365: fallback
     df = _implied('B365H', 'B365D', 'B365A', 'b365', df)
 
-    # implied_prob_* — основной источник для модели: Betfair если есть, иначе Pinnacle, иначе B365
+    # приоритет источника: Betfair, иначе Pinnacle, иначе B365
     for outcome in ['home', 'draw', 'away']:
         df[f'implied_prob_{outcome}'] = (
             df.get(f'betfair_{outcome}',

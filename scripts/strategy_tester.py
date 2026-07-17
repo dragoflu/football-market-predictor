@@ -1,5 +1,5 @@
 """
-Strategy Tester — фильтрует готовые walk-forward результаты без перезапуска модели.
+Strategy Tester: фильтрует готовые walk-forward результаты без перезапуска модели.
 
 Загружает data/results/walkforward_results.parquet и тестирует комбинации:
   - leagues:       какие лиги включать
@@ -42,7 +42,7 @@ def load_results() -> pd.DataFrame:
     df = pd.read_parquet(RESULTS_PATH)
     print(f'Загружено {len(df):,} матчей из {RESULTS_PATH}')
     print(f'Лиги: {sorted(df["League"].unique())}')
-    print(f'Сезоны: {df["Season"].min()} — {df["Season"].max()}')
+    print(f'Сезоны: {df["Season"].min()} - {df["Season"].max()}')
     print(f'Колонки: {list(df.columns)}\n')
     return df
 
@@ -83,7 +83,7 @@ def apply_strategy(df: pd.DataFrame,
 
     mask &= df['best_edge'] >= edge_min
 
-    # model_prob — вероятность модели на выбранный исход
+    # вероятность модели на выбранный исход
     if model_prob_min > 0:
         prob_col_map = {'home': 'pred_home', 'draw': 'pred_draw', 'away': 'pred_away'}
         model_prob = df['best_outcome'].map(prob_col_map).map(lambda c: df[c] if isinstance(c, str) else np.nan)
@@ -93,7 +93,7 @@ def apply_strategy(df: pd.DataFrame,
         )
         mask &= model_probs >= model_prob_min
 
-    # market_prob_max — отсечь случаи где рынок уже оценил высоко
+    # отсекаем случаи где рынок уже оценил высоко
     if market_prob_max < 1.0:
         market_prob_map = {'home': 'market_home', 'draw': 'market_draw', 'away': 'market_away'}
         market_probs = df.apply(
@@ -256,7 +256,7 @@ def main():
     )
     print_strategy_report(filtered_draw, label='E0+D1 | draw only | edge≥0.20 | p_model≥0.35')
 
-    # 3. Расширенная — E0+D1+SP1, draw+away
+    # 3. Расширенная: E0+D1+SP1, draw+away
     filtered_ext = apply_strategy(
         df,
         leagues=['E0', 'D1', 'SP1'],
@@ -266,7 +266,7 @@ def main():
     )
     print_strategy_report(filtered_ext, label='E0+D1+SP1 | draw+away | edge≥0.15 | p_model≥0.35')
 
-    # 4. SP1 отдельно — лучшая лига по ROI
+    # 4. SP1 отдельно: лучшая лига по ROI
     filtered_sp1 = apply_strategy(
         df,
         leagues=['SP1'],

@@ -1,10 +1,10 @@
 """
-Pipeline без Pinnacle implied probs в фичах — ablation study.
+Pipeline без Pinnacle implied probs в фичах: ablation study.
 
 Единственное отличие от run_with_importance.py:
   implied_home, implied_draw, implied_away убраны из FEATURE_COLS перед запуском.
 
-Результаты сохраняются с суффиксом _no_pinnacle — НЕ перезаписывают оригинал.
+Результаты сохраняются с суффиксом _no_pinnacle, оригинал не трогаем.
   data/results/walkforward_results_no_pinnacle.parquet
   data/results/feature_importance_no_pinnacle.csv
   data/results/strategy_validation_no_pinnacle.txt
