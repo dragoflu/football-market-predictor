@@ -92,7 +92,7 @@ Without Pinnacle, the model shifts toward draw markets in lower-profile leagues 
 
 ## Strategy Comparison
 
-All strategies evaluated on the same holdout period (2019–2026):
+All strategies evaluated over the full period (2006–2026). Holdout-only figures for the final strategy are in [Results](#results) above:
 
 | Strategy | ROI | Sharpe | Bets/season | Pos seasons | p-value |
 |---|---|---|---|---|---|
@@ -111,11 +111,13 @@ All strategies evaluated on the same holdout period (2019–2026):
 
 | Metric | Value |
 |---|---|
-| ROI (holdout 2019–2026) | +13.8% |
-| Sharpe ratio | 0.579 |
+| ROI (full period 2006–2026) | +13.8% |
+| ROI (holdout 2019–2026) | +19.6% |
+| Sharpe ratio (full period) | 0.579 |
 | Win rate vs market | 57.0% vs 51.4% |
 | p-value (binomial) | 0.021 |
-| Positive seasons | 13 / 18 |
+| Positive seasons (full period) | 13 / 18 |
+| Positive seasons (holdout) | 6 / 7 |
 | Bets per season | ~16 |
 | Survives Pinnacle ablation | Yes — ROI +11.1% without Pinnacle features |
 | Deflated Sharpe Ratio | 0.433 (p = 0.033, N = 500 strategies tested) |

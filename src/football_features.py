@@ -219,7 +219,7 @@ def _rolling_team_stats(df: pd.DataFrame, team: str, date: pd.Timestamp,
     if len(past) > 0:
         last_result = None
         streak = 0
-        for _, xrow in past.tail(10).iterrows()[::-1] if False else reversed(list(past.tail(10).iterrows())):
+        for _, xrow in reversed(list(past.tail(10).iterrows())):
             ftr = xrow.get('FTR')
             if ftr is None:
                 break
@@ -611,76 +611,6 @@ def build_features(df: pd.DataFrame, xg_df: pd.DataFrame | None = None,
                 print(f'  WARNING: {col} = {pct:.1%}')
 
     return result
-
-
-# ============================================================
-# Быстрая версия для inference (один матч)
-# ============================================================
-
-def build_single_match_features(history_df: pd.DataFrame,
-                                 home_team: str, away_team: str,
-                                 date: pd.Timestamp,
-                                 league: str,
-                                 market_probs: dict | None = None) -> dict:
-    """
-    Строит фичи для одного будущего матча (для inference).
-
-    Args:
-        history_df:   исторический датафрейм (уже с ELO)
-        home_team:    название домашней команды
-        away_team:    название выездной команды
-        date:         дата матча
-        league:       код лиги (E0, SP1, etc.)
-        market_probs: {'home': 0.45, 'draw': 0.30, 'away': 0.25} — цены Polymarket
-
-    Returns:
-        словарь с фичами для predict()
-    """
-    feat = {}
-
-    # ELO
-    home_elo = history_df[history_df['HomeTeam'] == home_team]['elo_home_after'].iloc[-1] \
-        if len(history_df[history_df['HomeTeam'] == home_team]) > 0 else ELO_INIT
-    away_elo = history_df[history_df['AwayTeam'] == away_team]['elo_away_after'].iloc[-1] \
-        if len(history_df[history_df['AwayTeam'] == away_team]) > 0 else ELO_INIT
-
-    feat['elo_home'] = home_elo
-    feat['elo_away'] = away_elo
-    feat['elo_diff'] = home_elo - away_elo + ELO_HOME_ADV
-
-    # Rolling
-    home_stats = _rolling_team_stats(history_df, home_team, date, ROLLING_WINDOWS)
-    for k, v in home_stats.items():
-        feat[f'home_{k}'] = v
-
-    away_stats = _rolling_team_stats(history_df, away_team, date, ROLLING_WINDOWS)
-    for k, v in away_stats.items():
-        feat[f'away_{k}'] = v
-
-    # Rest
-    feat['home_days_rest'] = _days_since_last_match(history_df, home_team, date)
-    feat['away_days_rest'] = _days_since_last_match(history_df, away_team, date)
-
-    # H2H
-    h2h = _h2h_stats(history_df, home_team, away_team, date)
-    feat.update(h2h)
-
-    # League position
-    home_pos = _league_position(history_df, home_team, date, league)
-    for k, v in home_pos.items():
-        feat[f'home_{k}'] = v
-
-    away_pos = _league_position(history_df, away_team, date, league)
-    for k, v in away_pos.items():
-        feat[f'away_{k}'] = v
-
-    # Market prices (как implied probs)
-    if market_probs:
-        feat['implied_home'] = market_probs.get('home', np.nan)
-        feat['implied_draw'] = market_probs.get('draw', np.nan)
-        feat['implied_away'] = market_probs.get('away', np.nan)
-
-    return feat
 
 
 if __name__ == '__main__':
