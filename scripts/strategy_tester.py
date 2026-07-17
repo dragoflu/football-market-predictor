@@ -216,20 +216,17 @@ def grid_search(df: pd.DataFrame, top_n: int = 20):
 
     grid_df = pd.DataFrame(results).sort_values('roi', ascending=False)
 
-    print(f'\n{"="*80}')
-    print(f'ТОП-{top_n} СТРАТЕГИЙ (min 30 ставок)')
-    print(f'{"="*80}')
-    print(f'{"Лиги":<25} {"Исходы":<15} {"Edge":<8} {"P_min":<8} {"Ставок":<8} {"ROI":<10} {"Win%"}')
-    print('-' * 80)
+    top = grid_df.head(top_n).rename(columns={
+        'leagues': 'Лиги', 'outcomes': 'Исходы', 'edge_min': 'Edge',
+        'model_prob_min': 'P_min', 'n_bets': 'Ставок',
+        'roi': 'ROI', 'win_rate': 'Win%',
+    }).copy()
+    top['ROI'] = top['ROI'].map('{:+.1%}'.format)
+    top['Win%'] = top['Win%'].map('{:.1%}'.format)
 
-    for _, row in grid_df.head(top_n).iterrows():
-        print(
-            f'{row["leagues"]:<25} {row["outcomes"]:<15} '
-            f'{row["edge_min"]:<8.2f} {row["model_prob_min"]:<8.2f} '
-            f'{row["n_bets"]:<8.0f} {row["roi"]:+.1%}     {row["win_rate"]:.1%}'
-        )
+    print(f'\nТОП-{top_n} СТРАТЕГИЙ (min 30 ставок)')
+    print(top.to_string(index=False))
 
-    # Сохраняем
     out_path = Path('data/results/strategy_grid.csv')
     grid_df.to_csv(out_path, index=False)
     print(f'\nПолная таблица сохранена: {out_path}')

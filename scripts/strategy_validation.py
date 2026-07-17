@@ -99,14 +99,17 @@ def grid_search_on(df: pd.DataFrame, min_bets_per_season: float = 15, label: str
         })
 
     grid_df = pd.DataFrame(results).sort_values('roi', ascending=False)
-    print(f'\n{"="*70}')
-    print(f'ТОП-10 на {label} (min {min_bets_per_season:.0f} ставок/сезон = {min_bets_total} всего)')
-    print(f'{"="*70}')
-    print(f'{"Лиги":<22} {"Исходы":<14} {"Edge":<7} {"Ставок":<8} {"/сезон":<8} {"ROI":<10} {"Win%"}')
-    print('-' * 75)
-    for _, row in grid_df.head(10).iterrows():
-        print(f'{row["leagues"]:<22} {row["outcomes"]:<14} {row["edge_min"]:<7.2f} '
-              f'{row["n_bets"]:<8.0f} {row["bets_per_season"]:<8.1f} {row["roi"]:+.1%}     {row["win_rate"]:.1%}')
+
+    top = grid_df.head(10).rename(columns={
+        'leagues': 'Лиги', 'outcomes': 'Исходы', 'edge_min': 'Edge',
+        'n_bets': 'Ставок', 'bets_per_season': '/сезон',
+        'roi': 'ROI', 'win_rate': 'Win%',
+    }).copy()
+    top['ROI'] = top['ROI'].map('{:+.1%}'.format)
+    top['Win%'] = top['Win%'].map('{:.1%}'.format)
+
+    print(f'\nТОП-10 на {label} (min {min_bets_per_season:.0f} ставок/сезон = {min_bets_total} всего)')
+    print(top.to_string(index=False))
     return grid_df
 
 

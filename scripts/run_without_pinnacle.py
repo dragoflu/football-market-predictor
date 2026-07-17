@@ -183,16 +183,17 @@ def run_strategy_validation(results_df):
     grid_df = pd.DataFrame(rows)
     valid = grid_df[grid_df['hld_bets'] >= 10].sort_values('hld_roi', ascending=False)
 
-    log.info(f'\nТоп-10 (без Pinnacle):')
-    log.info(f'{"Лиги":<20} {"Исходы":<15} {"Edge":>5}  {"SEL":>6}  {"SEL_ROI":>8}  {"HLD":>5}  {"HLD_ROI":>8}')
-    log.info('-' * 75)
-    for _, row in valid.head(10).iterrows():
-        log.info(f'{row["leagues"]:<20} {row["outcomes"]:<15} {row["edge_min"]:>5.2f}  '
-                 f'{row["sel_bets"]:>6.0f}  {row["sel_roi"]:>+8.1%}  '
-                 f'{row["hld_bets"]:>5.0f}  {row["hld_roi"]:>+8.1%}')
+    top = valid.head(10).rename(columns={
+        'leagues': 'Лиги', 'outcomes': 'Исходы', 'edge_min': 'Edge',
+        'sel_bets': 'SEL', 'sel_roi': 'SEL_ROI', 'hld_bets': 'HLD', 'hld_roi': 'HLD_ROI',
+    })[['Лиги', 'Исходы', 'Edge', 'SEL', 'SEL_ROI', 'HLD', 'HLD_ROI']].copy()
+    for col in ('SEL_ROI', 'HLD_ROI'):
+        top[col] = top[col].map('{:+.1%}'.format)
+    log.info('\nТоп-10 (без Pinnacle):\n' + top.to_string(index=False))
 
     report_path = RESULTS_DIR / 'strategy_validation_no_pinnacle.txt'
-    valid.head(15).to_string(buf=open(report_path, 'w'))
+    with open(report_path, 'w') as f:
+        f.write(valid.head(15).to_string(index=False))
     log.info(f'Отчёт: {report_path}')
 
 

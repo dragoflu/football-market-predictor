@@ -264,41 +264,32 @@ def main():
     log.info('ROBUSTNESS REPORT')
     log.info(f'{"="*60}')
 
-    lines = []
-    lines.append(f'\n{"="*70}')
-    lines.append('ROBUSTNESS CHECK REPORT')
-    lines.append(f'Seeds: {RANDOM_SEEDS} | {OPTUNA_TRIALS} Optuna trials each')
-    lines.append(f'{"="*70}\n')
-
-    lines.append(f'{"Стратегия":<35} ' + '  '.join(f'seed={s}' for s in RANDOM_SEEDS) + '  |  mean    std    min')
-    lines.append('-' * 110)
-
+    rows = []
     for strat in STRATEGIES:
         name = strat['name']
         rois = [r[name] for r in all_runs if name in r and not np.isnan(r[name])]
         if not rois:
-            lines.append(f'{name:<35} нет данных')
+            rows.append({'Стратегия': name})
             continue
-
         roi_arr = np.array(rois)
-        mean_roi = roi_arr.mean()
-        std_roi = roi_arr.std()
-        min_roi = roi_arr.min()
-        positive_runs = (roi_arr > 0).sum()
+        row = {'Стратегия': name}
+        for s, r in zip(RANDOM_SEEDS, rois):
+            row[f'seed={s}'] = f'{r:+.1%}'
+        row['mean'] = f'{roi_arr.mean():+.1%}'
+        row['std'] = f'±{roi_arr.std():.1%}'
+        row['min'] = f'{roi_arr.min():+.1%}'
+        row['стаб.'] = f'{(roi_arr > 0).sum()}/{len(rois)}'
+        rows.append(row)
 
-        roi_strs = '  '.join(f'{r:+.1%}' for r in rois)
-        stability = f'{positive_runs}/{len(rois)} позит.'
+    table = pd.DataFrame(rows).fillna('нет данных').to_string(index=False)
 
-        lines.append(
-            f'{name:<35} {roi_strs:<50}  |  {mean_roi:+.1%}  ±{std_roi:.1%}  min={min_roi:+.1%}  [{stability}]'
-        )
-
-    lines.append(f'\n{"="*70}')
-    lines.append('ВЫВОД:')
-    lines.append('  Стабильная стратегия: mean ROI > 0, std < |mean|, все прогоны > 0')
-    lines.append('  Нестабильная: высокий std или есть отрицательные прогоны')
-    lines.append(f'{"="*70}')
-
+    lines = [
+        f'\nROBUSTNESS CHECK REPORT',
+        f'Seeds: {RANDOM_SEEDS} | {OPTUNA_TRIALS} Optuna trials each\n',
+        table,
+        '\nСтабильная стратегия: mean > 0, std < |mean|, все прогоны > 0',
+        'Нестабильная: высокий std или есть отрицательные прогоны',
+    ]
     report = '\n'.join(lines)
     print(report)
 
