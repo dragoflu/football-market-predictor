@@ -11,6 +11,7 @@ data/results/*.log
 # кроме walk-forward результатов: на них держатся все цифры README
 !data/results/walkforward_results.parquet
 !data/results/walkforward_results_no_pinnacle.parquet
+!data/results/calibration_probs.parquet
 data/models/
 data/signals/
 data/*.log

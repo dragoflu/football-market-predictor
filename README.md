@@ -165,7 +165,7 @@ I identified that Pinnacle implied probabilities in the feature set create poten
 
 ## Limitations
 
-**ECE (Expected Calibration Error) is 0.12.** The model overestimates probabilities in absolute terms — predicts 0.85, actual rate is 0.61. This does not affect the strategy since edge is measured relative to Pinnacle, not in absolute terms. But it means Kelly sizing should be treated conservatively (quarter-Kelly or less).
+**Calibration is already good out of the box.** The raw ensemble probabilities have ECE ≈ 0.01 across outcomes — XGBoost's log-loss objective is a proper scoring rule and yields calibrated probabilities without extra work. The isotonic step, fit on a single validation season, slightly degrades already-good probabilities; refit on adequate data it marginally helps and beats Platt scaling. See `notebooks/03_probability_calibration.ipynb`. Kelly sizing is still treated conservatively (quarter-Kelly).
 
 **CLV (Closing Line Value) was not measured.** No timestamp data on when Pinnacle odds were recorded relative to match time. CLV is the standard professional metric for confirming real edge — without it, walk-forward ROI is the only validation.
 
