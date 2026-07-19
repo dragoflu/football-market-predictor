@@ -1,12 +1,11 @@
 # Football Market Predictor
 
 ![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python&logoColor=white)
-![PyTorch](https://img.shields.io/badge/PyTorch-2.10-EE4C2C?logo=pytorch&logoColor=white)
 ![XGBoost](https://img.shields.io/badge/XGBoost-2.x-orange)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Validation](https://img.shields.io/badge/Validation-Walk--forward%2019%20folds-blue)
 
-Finding systematic mispricings in European football betting markets using machine learning. Includes full ML/DL comparison: XGBoost vs Residual MLP (PyTorch) on 94k matches across 12 leagues and 20 seasons.
+Finding systematic mispricings in European football betting markets using machine learning: calibrated probability estimates from a Dixon-Coles + ELO + XGBoost ensemble on 94k matches across 12 leagues and 20 seasons, with value measured against the Pinnacle closing line.
 
 ---
 
@@ -186,62 +185,28 @@ Paper trading on Primeira Liga (Portugal) — home wins and draws — edge ≥ 0
 
 ---
 
-## Deep Learning Comparison: Residual MLP vs XGBoost
-
-Full research in [`experiments/08_mlp_vs_xgboost.ipynb`](experiments/08_mlp_vs_xgboost.ipynb).
-
-### Architecture
-
-Residual MLP (PyTorch): `Input → Linear(256) → ReLU → Dropout → ResBlock × 2 → Linear(64) → Linear(3)`  
-Post-hoc calibration via Temperature Scaling (T learned on val set via LBFGS).  
-Training: AdamW + Cosine Annealing with warm restarts (T₀=20) + label smoothing + early stopping.
-
-### Results (walk-forward, 19 folds, 2006–2026)
-
-| Model | Brier ↓ | RPS ↓ | ROI | Bets | +Seasons |
-|---|---|---|---|---|---|
-| **XGBoost + Pinnacle** | **0.1936** | **0.1969** | **+6.3%** | 1,181 | 12/19 |
-| MLP + Pinnacle | 0.1998 | 0.2051 | −5.8% | 17,340 | 4/19 |
-| XGBoost, no Pinnacle | 0.1966 | 0.2012 | +0.3% | 14,392 | 8/19 |
-| MLP, no Pinnacle | 0.2011 | 0.2071 | −5.1% | 22,181 | 6/19 |
-
-### Key Finding
-
-MLP achieves comparable Brier Score (−6.2 millipoints vs XGBoost) but generates **15× more bets with negative ROI**. Small calibration errors compound into large losses under Kelly sizing. This demonstrates that prediction accuracy ≠ trading utility — calibration quality has outsized impact on bet sizing outcomes.
-
-XGBoost's probability estimates are better calibrated for the Kelly criterion on this dataset. Temperature Scaling (T=1.42) partially corrects MLP overconfidence but is insufficient for aggressive Kelly sizing.
-
-### Interpretability
-
-- XGBoost: SHAP values (TreeExplainer)
-- MLP: Integrated Gradients (Sundararajan et al., 2017)
-- Both methods agree on top features: `elo_diff` > `implied_home/draw/away` > rolling form stats
-
-![Feature importance comparison](data/results/mlp_feature_importance.png)
-![Walk-forward results](data/results/mlp_walkforward_results.png)
-
----
-
 ## Structure
 
 ```
 notebooks/
-  football_market_predictor.ipynb  — full XGBoost research narrative
-experiments/
-  08_mlp_vs_xgboost.ipynb          — DL comparison: Residual MLP vs XGBoost
+  01_feature_engineering.ipynb     — feature groups, walk-forward safety, coverage
+  02_model_training.ipynb          — Dixon-Coles + ELO + XGBoost, Optuna, SHAP
+  03_probability_calibration.ipynb — reliability curves, ECE, isotonic vs Platt
+  04_strategy_results.ipynb        — ROI, ablation, bankroll, strategy comparison
 src/
   football_features.py             — feature engineering (ELO, rolling stats, xG)
-  football_model.py                — XGBoost + walk-forward + Optuna tuning
+  football_model.py                — ensemble + calibration + walk-forward + Optuna
 scripts/
   collect_football_history.py      — data collection (football-data.co.uk)
   collect_xg_data.py               — xG data (Understat API)
   build_football_features.py       — feature matrix construction
+  calibration_study.py             — raw + calibrated probs for notebook 03
   strategy_tester.py               — grid search over league/outcome/edge
   strategy_validation.py           — selection (2006–2018) vs holdout (2019–2026)
   overnight_pipeline.py            — full retraining pipeline (~3-4h)
 data/
   raw/football/                    — match results + odds (parquet)
-  processed/football_features.parquet  — feature matrix (94k × 85)
+  processed/football_features.parquet  — feature matrix (94k × 165)
   results/                         — walk-forward predictions, figures, reports
 ```
 
@@ -251,7 +216,7 @@ data/
 
 ```
 Python 3.12
-pytorch, xgboost, optuna, scikit-learn, shap
+xgboost, optuna, scikit-learn, shap
 pandas, numpy, scipy
 Data: football-data.co.uk, Understat API
 Validation: walk-forward cross-validation (19 folds)
