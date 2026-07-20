@@ -112,14 +112,15 @@ All strategies evaluated over the full period (2006–2026). Holdout-only figure
 |---|---|
 | ROI (full period 2006–2026) | +13.8% |
 | ROI (holdout 2019–2026) | +19.6% |
-| Sharpe ratio (full period) | 0.579 |
-| Win rate vs market | 57.0% vs 51.4% |
-| p-value (binomial) | 0.021 |
+| Sharpe ratio (holdout, across seasons) | 1.12 |
+| Win rate vs market (holdout) | 67.7% vs 57.9% |
+| p-value (binomial, holdout) | 0.031 |
 | Positive seasons (full period) | 13 / 18 |
 | Positive seasons (holdout) | 6 / 7 |
-| Bets per season | ~16 |
+| Bets per season (holdout) | ~14 |
 | Survives Pinnacle ablation | Yes — ROI +11.1% without Pinnacle features |
-| Deflated Sharpe Ratio | 0.433 (p = 0.033, N = 500 strategies tested) |
+
+All figures above are reproduced by [`notebooks/04_strategy_results.ipynb`](notebooks/04_strategy_results.ipynb) from the tracked walk-forward parquet.
 
 Why Portugal: the market's English-speaking, American-skewed audience prices well-known leagues (EPL, Bundesliga (Germany), La Liga) efficiently. Primeira Liga (Portugal) teams like Braga, Vitória, and Famalicão are less followed — current form and ELO signal is not fully priced in. The model exploits this gap.
 
@@ -155,7 +156,7 @@ I identified that Pinnacle implied probabilities in the feature set create poten
 
 **Sharpe Ratio** — mean seasonal ROI divided by standard deviation of seasonal ROI. Measures consistency, not just average return.
 
-**Deflated Sharpe Ratio (DSR)** — Sharpe corrected for non-normality of returns and multiple comparisons (López de Prado, 2018). Grid search across ~500 strategy combinations inflates the chance of finding a spuriously profitable strategy. DSR penalizes for this. For the final Primeira Liga (Portugal) strategy: regular Sharpe 0.579 → DSR 0.433, p = 0.033. The strategy survives this test.
+**Multiple comparisons.** Grid search across ~500 strategy combinations inflates the chance of finding a spuriously profitable strategy. The guard here is the selection/holdout split: strategies are picked on 2006–2018 and confirmed once on 2019–2026, which is why most candidates collapse (see Strategy Comparison). A corrected-Sharpe statistic (Deflated Sharpe Ratio, López de Prado 2018) would be a stronger test and is left as future work.
 
 **p-value (binomial test)** — tests whether the observed win rate exceeds market-implied win rate by chance. Threshold: p < 0.05.
 
@@ -173,9 +174,9 @@ That said, CLV is less critical here than in tight-margin strategies for three r
 
 The practical risk is different: Pinnacle limits winning accounts. The realistic execution path is to use soft bookmakers at odds close to Pinnacle closing line, until they restrict. This is standard for any sports betting strategy with real edge.
 
-**70% max drawdown** with dynamic Kelly over 19 years. A single bad season can look like −30%. Requires capital allocation discipline.
+**Drawdowns are real.** Quarter-Kelly over 18 seasons ends at +70% ($1,000 → $1,699) with a −11.9% max drawdown, but a single bad season still prints negative (2022/23: −10.9%). Requires capital allocation discipline.
 
-**16 bets per season is a small sample.** p = 0.021 across 18 seasons is meaningful but one season of paper trading (~16 bets) will not be statistically conclusive on its own. Treat paper trading as qualitative validation, not proof.
+**~14 bets per season is a small sample.** The binomial p = 0.031 on holdout is suggestive but thin, and one season of paper trading (~14 bets) will not be statistically conclusive on its own. Treat paper trading as qualitative validation, not proof.
 
 ---
 
